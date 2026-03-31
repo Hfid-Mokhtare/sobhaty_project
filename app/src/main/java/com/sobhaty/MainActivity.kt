@@ -10,19 +10,21 @@ import android.view.KeyEvent
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
-import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.*
 import androidx.compose.animation.core.animateFloatAsState
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
+import androidx.compose.animation.core.tween
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
@@ -58,7 +60,7 @@ val provider = GoogleFont.Provider(
     certificates = R.array.com_google_android_gms_fonts_certs
 )
 
-// Amiri font gives a beautiful Uthmanic/Calligraphic feel
+// Amiri Font
 val AmiriFont = GoogleFont("Amiri")
 val ArabicFontFamily = FontFamily(
     Font(googleFont = AmiriFont, fontProvider = provider)
@@ -121,18 +123,12 @@ fun SubhaApp(setVolumeUpCallback: (() -> Unit) -> Unit) {
         dhikrList.forEach { dhikr ->
             val targetKey = intPreferencesKey("target_${dhikr.id}")
             val counterKey = intPreferencesKey("counter_${dhikr.id}")
-            
             val preferences = context.dataStore.data.first()
-            
             val savedTarget = preferences[targetKey] ?: dhikr.defaultTarget
             val savedCount = preferences[counterKey] ?: 0
-            
             targetCounts[dhikr.id] = savedTarget
             savedCounters[dhikr.id] = savedCount
-            
-            if (savedCount >= savedTarget) {
-                completedDhikrs[dhikr.id] = true
-            }
+            if (savedCount >= savedTarget) completedDhikrs[dhikr.id] = true
         }
         counter = savedCounters[dhikrList[selectedIndex].id] ?: 0
     }
@@ -145,14 +141,10 @@ fun SubhaApp(setVolumeUpCallback: (() -> Unit) -> Unit) {
             counter++
             val newCount = counter
             savedCounters[currentDhikr.id] = newCount
-            
             scope.launch {
                 val key = intPreferencesKey("counter_${currentDhikr.id}")
-                context.dataStore.edit { preferences ->
-                    preferences[key] = newCount
-                }
+                context.dataStore.edit { preferences -> preferences[key] = newCount }
             }
-
             if (newCount == currentTarget) {
                 completedDhikrs[currentDhikr.id] = true
                 performLongVibration(context)
@@ -163,9 +155,7 @@ fun SubhaApp(setVolumeUpCallback: (() -> Unit) -> Unit) {
     }
 
     LaunchedEffect(currentDhikr, counter, currentTarget) {
-        setVolumeUpCallback {
-            incrementCounter()
-        }
+        setVolumeUpCallback { incrementCounter() }
     }
 
     var showEditTarget by remember { mutableStateOf(false) }
@@ -187,15 +177,19 @@ fun SubhaApp(setVolumeUpCallback: (() -> Unit) -> Unit) {
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.SpaceBetween
         ) {
-            // Top Section
-            if (!isFullscreen) {
+            // Animated Top Section
+            AnimatedVisibility(
+                visible = !isFullscreen,
+                enter = fadeIn(tween(400)) + expandVertically(tween(400)),
+                exit = fadeOut(tween(400)) + shrinkVertically(tween(400))
+            ) {
                 Column(
                     modifier = Modifier.padding(top = 16.dp),
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
                     Box {
                         OutlinedButton(onClick = { showDropdown = true }) {
-                            Text(text = currentDhikr.name, fontSize = 18.sp)
+                            Text(text = currentDhikr.name, fontSize = 16.sp)
                             if (completedDhikrs[currentDhikr.id] == true) {
                                 Icon(
                                     Icons.Default.CheckCircle, 
@@ -217,11 +211,7 @@ fun SubhaApp(setVolumeUpCallback: (() -> Unit) -> Unit) {
                                             Text(dhikr.name)
                                             if (completedDhikrs[dhikr.id] == true) {
                                                 Spacer(modifier = Modifier.width(8.dp))
-                                                Icon(
-                                                    Icons.Default.Check, 
-                                                    contentDescription = null, 
-                                                    tint = Color(0xFF4CAF50)
-                                                )
+                                                Icon(Icons.Default.Check, contentDescription = null, tint = Color(0xFF4CAF50))
                                             }
                                         }
                                     },
@@ -249,7 +239,6 @@ fun SubhaApp(setVolumeUpCallback: (() -> Unit) -> Unit) {
                         LaunchedEffect(showEditTarget) {
                             if (showEditTarget) focusRequester.requestFocus()
                         }
-
                         Row(
                             verticalAlignment = Alignment.CenterVertically,
                             modifier = Modifier.padding(horizontal = 16.dp)
@@ -276,31 +265,35 @@ fun SubhaApp(setVolumeUpCallback: (() -> Unit) -> Unit) {
                         }
                     }
                 }
-            } else {
-                Spacer(modifier = Modifier.height(50.dp))
             }
 
-            // Dhikr Full Text with Beautiful Arabic Font
+            // Dhikr Full Text with Smooth Layout Transition
             AnimatedVisibility(
                 visible = isCounterVisible,
-                enter = fadeIn(),
-                exit = fadeOut()
+                enter = fadeIn(tween(600)) + expandVertically(tween(600)),
+                exit = fadeOut(tween(600)) + shrinkVertically(tween(600))
             ) {
-                Text(
-                    text = currentDhikr.fullText,
-                    fontSize = 32.sp, // Larger font size for better calligraphic appearance
-                    fontFamily = ArabicFontFamily, 
-                    fontWeight = FontWeight.Medium,
-                    textAlign = TextAlign.Center,
-                    lineHeight = 48.sp,
-                    color = MaterialTheme.colorScheme.onSurface,
+                Box(
                     modifier = Modifier
-                        .padding(horizontal = 24.dp, vertical = 8.dp)
-                        .fillMaxWidth()
-                )
+                        .padding(horizontal = 24.dp, vertical = 12.dp)
+                        .clip(RoundedCornerShape(12.dp))
+                        .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f))
+                        .padding(12.dp)
+                ) {
+                    Text(
+                        text = currentDhikr.fullText,
+                        fontSize = 18.sp,
+                        fontFamily = ArabicFontFamily, 
+                        fontWeight = FontWeight.Normal,
+                        textAlign = TextAlign.Center,
+                        lineHeight = 28.sp,
+                        color = MaterialTheme.colorScheme.onSurface,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                }
             }
 
-            // Counter in the center
+            // Counter Box - Using AnimatedContent for fluid interior changes
             Box(
                 modifier = Modifier
                     .weight(1f)
@@ -308,45 +301,55 @@ fun SubhaApp(setVolumeUpCallback: (() -> Unit) -> Unit) {
                     .clickable(
                         interactionSource = remember { MutableInteractionSource() },
                         indication = null 
-                    ) {
-                        incrementCounter()
-                    },
+                    ) { incrementCounter() },
                 contentAlignment = Alignment.Center
             ) {
                 CircularProgressIndicator(
                     progress = { progress },
-                    modifier = Modifier.size(280.dp),
+                    modifier = Modifier.size(260.dp),
                     color = if (counter >= currentTarget) Color(0xFF4CAF50) else MaterialTheme.colorScheme.primary,
-                    strokeWidth = 4.dp, 
+                    strokeWidth = 3.dp,
                     trackColor = MaterialTheme.colorScheme.surfaceVariant,
                 )
 
-                if (isCounterVisible) {
-                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                AnimatedContent(
+                    targetState = isCounterVisible,
+                    transitionSpec = {
+                        fadeIn(tween(600)) togetherWith fadeOut(tween(600))
+                    },
+                    label = "counter_display"
+                ) { visible ->
+                    if (visible) {
+                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                            Text(
+                                text = counter.toString(),
+                                fontSize = 80.sp,
+                                fontWeight = FontWeight.ExtraBold,
+                                color = if (counter >= currentTarget) Color(0xFF4CAF50) else MaterialTheme.colorScheme.primary
+                            )
+                            Text(
+                                text = if (counter >= currentTarget) "تم الإنجاز!" else "من $currentTarget",
+                                fontSize = 20.sp,
+                                fontWeight = FontWeight.Medium,
+                                color = if (counter >= currentTarget) Color(0xFF4CAF50) else MaterialTheme.colorScheme.secondary
+                            )
+                        }
+                    } else {
                         Text(
-                            text = counter.toString(),
-                            fontSize = 100.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = if (counter >= currentTarget) Color(0xFF4CAF50) else MaterialTheme.colorScheme.primary
-                        )
-                        Text(
-                            text = if (counter >= currentTarget) "تم الإنجاز!" else "من $currentTarget",
-                            fontSize = 24.sp,
-                            color = if (counter >= currentTarget) Color(0xFF4CAF50) else MaterialTheme.colorScheme.secondary
+                            "انقر للتسبيح",
+                            fontSize = 20.sp,
+                            color = MaterialTheme.colorScheme.outline,
+                            textAlign = TextAlign.Center
                         )
                     }
-                } else {
-                    Text(
-                        "انقر للتسبيح",
-                        fontSize = 24.sp,
-                        color = MaterialTheme.colorScheme.outline
-                    )
                 }
             }
 
             // Bottom Buttons
             Row(
-                modifier = Modifier.padding(bottom = 48.dp).fillMaxWidth(),
+                modifier = Modifier
+                    .padding(bottom = 32.dp)
+                    .fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceEvenly,
                 verticalAlignment = Alignment.CenterVertically
             ) {
@@ -354,7 +357,7 @@ fun SubhaApp(setVolumeUpCallback: (() -> Unit) -> Unit) {
                     Icon(
                         imageVector = if (isCounterVisible) Icons.Default.VisibilityOff else Icons.Default.Visibility,
                         contentDescription = "إخفاء العداد",
-                        modifier = Modifier.size(32.dp)
+                        modifier = Modifier.size(28.dp)
                     )
                 }
 
@@ -362,26 +365,28 @@ fun SubhaApp(setVolumeUpCallback: (() -> Unit) -> Unit) {
                     Icon(
                         imageVector = if (isFullscreen) Icons.Default.Close else Icons.Default.Fullscreen,
                         contentDescription = "ملئ الشاشة",
-                        modifier = Modifier.size(32.dp)
+                        modifier = Modifier.size(28.dp)
                     )
                 }
 
-                if (!isFullscreen) {
+                AnimatedVisibility(
+                    visible = !isFullscreen,
+                    enter = fadeIn(tween(400)) + expandHorizontally(tween(400)),
+                    exit = fadeOut(tween(400)) + shrinkHorizontally(tween(400))
+                ) {
                     IconButton(onClick = { 
                         counter = 0 
                         savedCounters[currentDhikr.id] = 0
                         completedDhikrs[currentDhikr.id] = false
                         scope.launch {
                             val key = intPreferencesKey("counter_${currentDhikr.id}")
-                            context.dataStore.edit { preferences ->
-                                preferences[key] = 0
-                            }
+                            context.dataStore.edit { preferences -> preferences[key] = 0 }
                         }
                     }) {
                         Icon(
                             imageVector = Icons.Default.Refresh,
                             contentDescription = "إعادة العداد",
-                            modifier = Modifier.size(32.dp)
+                            modifier = Modifier.size(28.dp)
                         )
                     }
                 }
@@ -398,7 +403,6 @@ fun performLongVibration(context: Context) {
         @Suppress("DEPRECATION")
         context.getSystemService(Context.VIBRATOR_SERVICE) as Vibrator
     }
-
     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
         vibrator.vibrate(VibrationEffect.createOneShot(500, VibrationEffect.DEFAULT_AMPLITUDE))
     } else {
