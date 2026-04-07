@@ -8,12 +8,13 @@ import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.animation.*
 import androidx.compose.animation.core.tween
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.platform.LocalView
@@ -72,12 +73,10 @@ fun SubhaApp(viewModel: SubhaViewModel) {
         if (window != null) {
             val windowInsetsController = WindowCompat.getInsetsController(window, view)
             if (isFullscreen) {
-                // Hide status bar and navigation bar
                 windowInsetsController.hide(WindowInsetsCompat.Type.systemBars())
                 windowInsetsController.systemBarsBehavior = 
                     WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
             } else {
-                // Show bars again
                 windowInsetsController.show(WindowInsetsCompat.Type.systemBars())
             }
         }
@@ -87,7 +86,14 @@ fun SubhaApp(viewModel: SubhaViewModel) {
         Column(
             modifier = Modifier
                 .padding(if (isFullscreen) PaddingValues(0.dp) else innerPadding)
-                .fillMaxSize(),
+                .fillMaxSize()
+                // في وضع ملء الشاشة، نجعل الشاشة كاملة قابلة للنقر لزيادة العداد
+                .clickable(
+                    enabled = isFullscreen,
+                    interactionSource = remember { MutableInteractionSource() },
+                    indication = null,
+                    onClick = { viewModel.increment(context, haptic) }
+                ),
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.SpaceBetween
         ) {
@@ -106,7 +112,10 @@ fun SubhaApp(viewModel: SubhaViewModel) {
                 enter = fadeIn(tween(600)) + expandVertically(tween(600)),
                 exit = fadeOut(tween(600)) + shrinkVertically(tween(600))
             ) {
-                DhikrPager(viewModel.dhikrList[viewModel.selectedIndex])
+                // Bounds check safety
+                if (viewModel.selectedIndex < viewModel.dhikrList.size) {
+                    DhikrPager(viewModel.dhikrList[viewModel.selectedIndex])
+                }
             }
 
             // 3. Central Counter
