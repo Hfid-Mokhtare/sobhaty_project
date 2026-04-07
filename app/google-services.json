@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "137103003551",
+    "project_id": "sobhaty-ef1b4",
+    "storage_bucket": "sobhaty-ef1b4.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:137103003551:android:01ba9c0b1ba11c0910f7aa",
+        "android_client_info": {
+          "package_name": "com.sobhaty"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCOPw61wEruJoctwmThVhJR34ToiR9qmAk"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

@@ -9,8 +9,12 @@ import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.pager.HorizontalPager
+import androidx.compose.foundation.pager.rememberPagerState
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
@@ -23,11 +27,13 @@ import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.sobhaty.model.ArabicFontFamily
+import com.sobhaty.model.Thikr
 import com.sobhaty.viewmodel.SubhaViewModel
 
 @Composable
@@ -46,7 +52,7 @@ fun ColumnScope.TopControls(viewModel: SubhaViewModel) {
                 FilterChip(
                     selected = isSelected,
                     onClick = { viewModel.selectDhikr(index) },
-                    label = { Text(dhikr.name) },
+                    label = { Text(dhikr.category) },
                     leadingIcon = if (viewModel.completedStates[index] == true) {
                         { Icon(Icons.Default.Check, null, modifier = Modifier.size(16.dp)) }
                     } else null,
@@ -86,22 +92,105 @@ fun ColumnScope.TopControls(viewModel: SubhaViewModel) {
 }
 
 @Composable
-fun ColumnScope.DhikrDisplay(text: String) {
+fun ColumnScope.DhikrPager(dhikr: Thikr) {
+    val pages = mutableListOf<@Composable () -> Unit>()
+    
+    pages.add {
+        DhikrContentBox(title = "الذكر", text = dhikr.text)
+    }
+    
+    dhikr.verses?.forEach { verse ->
+        pages.add {
+            DhikrContentBox(title = "الآية (${verse.surah} - ${verse.ayahNumber})", text = verse.text)
+        }
+    }
+    
+    dhikr.hadith?.let { hadith ->
+        pages.add {
+            DhikrContentBox(title = "الحديث الشريف", text = hadith.text, extra = hadith.source)
+        }
+    }
+
+    val pagerState = rememberPagerState(pageCount = { pages.size })
+
+    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+        HorizontalPager(
+            state = pagerState,
+            modifier = Modifier.fillMaxWidth(),
+            contentPadding = PaddingValues(horizontal = 24.dp)
+        ) { pageIndex ->
+            pages[pageIndex]()
+        }
+        
+        if (pages.size > 1) {
+            Row(
+                Modifier.padding(vertical = 4.dp),
+                horizontalArrangement = Arrangement.Center
+            ) {
+                repeat(pages.size) { iteration ->
+                    val color = if (pagerState.currentPage == iteration) MaterialTheme.colorScheme.primary else Color.LightGray
+                    Box(
+                        modifier = Modifier
+                            .padding(2.dp)
+                            .clip(CircleShape)
+                            .background(color)
+                            .size(6.dp)
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun DhikrContentBox(title: String, text: String, extra: String? = null) {
     Box(
         modifier = Modifier
-            .padding(horizontal = 24.dp, vertical = 12.dp)
+            .padding(vertical = 8.dp, horizontal = 4.dp)
+            .height(140.dp) // Reduced height from 180.dp to 140.dp
             .clip(RoundedCornerShape(12.dp))
             .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f))
             .padding(12.dp)
     ) {
-        Text(
-            text = text, 
-            fontSize = 18.sp, 
-            fontFamily = ArabicFontFamily,
-            textAlign = TextAlign.Center, 
-            lineHeight = 28.sp, 
-            modifier = Modifier.fillMaxWidth()
-        )
+        Column(
+            horizontalAlignment = Alignment.CenterHorizontally,
+            modifier = Modifier.fillMaxSize()
+        ) {
+            Text(
+                text = title,
+                fontSize = 11.sp,
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.primary,
+                textAlign = TextAlign.Center
+            )
+            Spacer(modifier = Modifier.height(4.dp))
+            
+            Box(
+                modifier = Modifier
+                    .weight(1f)
+                    .verticalScroll(rememberScrollState()),
+                contentAlignment = Alignment.Center
+            ) {
+                Text(
+                    text = text, 
+                    fontSize = 16.sp, // Reduced font size slightly for better fit
+                    fontFamily = ArabicFontFamily,
+                    textAlign = TextAlign.Center, 
+                    lineHeight = 24.sp, 
+                    modifier = Modifier.fillMaxWidth()
+                )
+            }
+            
+            extra?.let {
+                Spacer(modifier = Modifier.height(4.dp))
+                Text(
+                    text = "المصدر: $it",
+                    fontSize = 9.sp,
+                    color = MaterialTheme.colorScheme.secondary,
+                    textAlign = TextAlign.Center
+                )
+            }
+        }
     }
 }
 
@@ -135,38 +224,37 @@ fun ColumnScope.CounterCircle(
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center
     ) {
-        // الشريط الخطي والنسبة المئوية (يظهر إذا كان العداد مرئياً أو في وضع ملء الشاشة)
         if (isVisible || isFullscreen) {
             Row(
-                modifier = Modifier.padding(horizontal = 40.dp, vertical = 8.dp),
+                modifier = Modifier.padding(horizontal = 40.dp, vertical = 4.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 LinearProgressIndicator(
                     progress = { progress },
                     modifier = Modifier
                         .weight(1f)
-                        .height(8.dp)
-                        .clip(RoundedCornerShape(4.dp)),
+                        .height(6.dp)
+                        .clip(RoundedCornerShape(3.dp)),
                     color = if (counter >= target) Color(0xFF4CAF50) else MaterialTheme.colorScheme.primary,
                     trackColor = MaterialTheme.colorScheme.surfaceVariant
                 )
                 Spacer(modifier = Modifier.width(12.dp))
                 Text(
                     text = "${(progressValue * 100).toInt()}%",
-                    fontSize = 14.sp,
+                    fontSize = 13.sp,
                     fontWeight = FontWeight.Bold,
                     color = if (counter >= target) Color(0xFF4CAF50) else MaterialTheme.colorScheme.primary
                 )
             }
         }
 
-        Spacer(modifier = Modifier.height(16.dp))
+        Spacer(modifier = Modifier.height(8.dp))
 
         Box(
             modifier = Modifier
-                .size(280.dp)
+                .size(260.dp) // Slightly smaller circle to fit perfectly
                 .scale(scale)
-                .shadow(elevation = 8.dp, shape = CircleShape)
+                .shadow(elevation = 6.dp, shape = CircleShape)
                 .clip(CircleShape)
                 .background(MaterialTheme.colorScheme.surface)
                 .clickable(
@@ -178,9 +266,9 @@ fun ColumnScope.CounterCircle(
         ) {
             CircularProgressIndicator(
                 progress = { progress }, 
-                modifier = Modifier.size(260.dp),
+                modifier = Modifier.size(240.dp),
                 color = if (counter >= target) Color(0xFF4CAF50) else MaterialTheme.colorScheme.primary,
-                strokeWidth = 6.dp, 
+                strokeWidth = 5.dp, 
                 trackColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
             )
             
@@ -193,13 +281,13 @@ fun ColumnScope.CounterCircle(
                     Column(horizontalAlignment = Alignment.CenterHorizontally) {
                         Text(
                             text = counter.toString(), 
-                            fontSize = 80.sp, 
+                            fontSize = 70.sp, // Slightly smaller numbers
                             fontWeight = FontWeight.ExtraBold, 
                             color = if (counter >= target) Color(0xFF4CAF50) else MaterialTheme.colorScheme.primary
                         )
                         Text(
                             text = if (counter >= target) "تم الإنجاز!" else "من $target", 
-                            fontSize = 20.sp, 
+                            fontSize = 18.sp, 
                             color = if (counter >= target) Color(0xFF4CAF50) else MaterialTheme.colorScheme.secondary
                         )
                     }
@@ -207,7 +295,7 @@ fun ColumnScope.CounterCircle(
                     Icon(
                         Icons.Default.Add, 
                         contentDescription = null, 
-                        modifier = Modifier.size(64.dp), 
+                        modifier = Modifier.size(56.dp), 
                         tint = MaterialTheme.colorScheme.primary.copy(alpha = 0.3f)
                     )
                 }
@@ -225,32 +313,60 @@ fun ColumnScope.BottomActions(
     onReset: () -> Unit
 ) {
     Row(
-        modifier = Modifier.padding(bottom = 32.dp).fillMaxWidth(), 
+        modifier = Modifier.padding(bottom = 24.dp).fillMaxWidth(), 
         horizontalArrangement = Arrangement.SpaceEvenly, 
         verticalAlignment = Alignment.CenterVertically
     ) {
-        IconButton(onClick = onToggleVisibility) {
-            Icon(
-                if (isCounterVisible) Icons.Default.VisibilityOff else Icons.Default.Visibility, 
-                null, 
-                modifier = Modifier.size(28.dp)
-            )
-        }
-        IconButton(onClick = onToggleFullscreen) {
-            Icon(
-                if (isFullscreen) Icons.Default.Close else Icons.Default.Fullscreen, 
-                null, 
-                modifier = Modifier.size(28.dp)
-            )
-        }
+        BottomActionItem(
+            icon = if (isCounterVisible) Icons.Default.VisibilityOff else Icons.Default.Visibility,
+            label = if (isCounterVisible) "إخفاء" else "إظهار",
+            onClick = onToggleVisibility
+        )
+        
+        BottomActionItem(
+            icon = if (isFullscreen) Icons.Default.Close else Icons.Default.Fullscreen,
+            label = if (isFullscreen) "خروج" else "ملء الشاشة",
+            onClick = onToggleFullscreen
+        )
+
         AnimatedVisibility(
             visible = !isFullscreen,
             enter = fadeIn(tween(400)) + expandHorizontally(tween(400)),
             exit = fadeOut(tween(400)) + shrinkHorizontally(tween(400))
         ) {
-            IconButton(onClick = onReset) { 
-                Icon(Icons.Default.Refresh, null, modifier = Modifier.size(28.dp)) 
-            }
+            BottomActionItem(
+                icon = Icons.Default.Refresh,
+                label = "تصفير",
+                onClick = onReset
+            )
         }
+    }
+}
+
+@Composable
+fun BottomActionItem(
+    icon: ImageVector,
+    label: String,
+    onClick: () -> Unit
+) {
+    Column(
+        horizontalAlignment = Alignment.CenterHorizontally,
+        modifier = Modifier
+            .clip(RoundedCornerShape(8.dp))
+            .clickable(
+                interactionSource = remember { MutableInteractionSource() },
+                indication = ripple(bounded = true),
+                onClick = onClick
+            )
+            .padding(8.dp)
+    ) {
+        Icon(icon, null, modifier = Modifier.size(26.dp), tint = MaterialTheme.colorScheme.primary)
+        Spacer(modifier = Modifier.height(2.dp))
+        Text(
+            text = label, 
+            fontSize = 10.sp, 
+            fontWeight = FontWeight.Medium,
+            color = MaterialTheme.colorScheme.primary
+        )
     }
 }
