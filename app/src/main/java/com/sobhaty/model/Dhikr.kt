@@ -16,3 +16,5 @@ val provider = GoogleFont.Provider(
 val ArabicFontFamily = FontFamily(
     Font(googleFont = GoogleFont("Amiri"), fontProvider = provider)
 )
+
+//coment
