@@ -12,6 +12,11 @@ import kotlinx.coroutines.flow.map
 val Context.dataStore: DataStore<Preferences> by preferencesDataStore(name = "subha_prefs")
 
 class SubhaRepository(private val context: Context) {
+    
+    companion object {
+        const val KEY_SELECTED_INDEX = "selected_index"
+    }
+
     fun getInt(key: String, default: Int): Flow<Int> = 
         context.dataStore.data.map { it[intPreferencesKey(key)] ?: default }
     

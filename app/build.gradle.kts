@@ -11,7 +11,7 @@ android {
     defaultConfig {
         applicationId = "com.sobhaty"
         minSdk = 24
-        targetSdk = 36
+        targetSdk = 35 // Keeping targetSdk at 35 for now as per recommended practice
         versionCode = 1
         versionName = "1.0"
 
@@ -34,9 +34,6 @@ android {
     kotlinOptions {
         jvmTarget = "11"
     }
-    buildFeatures {
-        compose = true
-    }
 }
 
 dependencies {
@@ -52,6 +49,12 @@ dependencies {
     implementation(libs.androidx.compose.material.icons.extended)
     implementation(libs.androidx.datastore.preferences)
     implementation(libs.androidx.compose.ui.text.google.fonts)
+    
+    implementation(libs.androidx.compose.runtime)
+    
+    implementation(libs.androidx.glance.appwidget)
+    implementation(libs.androidx.glance.material3)
+
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.espresso.core)

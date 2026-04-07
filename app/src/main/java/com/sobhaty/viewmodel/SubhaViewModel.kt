@@ -6,18 +6,19 @@ import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.hapticfeedback.HapticFeedback
-import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.lifecycle.ViewModel
+import androidx.lifecycle.viewModelScope
 import com.sobhaty.model.Dhikr
 import com.sobhaty.repository.SubhaRepository
 import com.sobhaty.util.VibrationUtil
-import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 
 class SubhaViewModel(applicationContext: Context) : ViewModel() {
     private val repository = SubhaRepository(applicationContext)
+    private var loadJob: Job? = null
     
     val dhikrList = listOf(
         Dhikr(0, "الإستغفار", "رَبِّ اغْفِرْ لِي وَ تُبْ عَلَيَّ إِنَّكَ أَنْتَ التَّوَّابُ الرَّحِيمُ", 100),
@@ -32,13 +33,29 @@ class SubhaViewModel(applicationContext: Context) : ViewModel() {
     var currentTarget by mutableIntStateOf(33)
     val completedStates = mutableStateMapOf<Int, Boolean>()
 
+    init {
+        viewModelScope.launch(Dispatchers.IO) {
+            val lastIndex = repository.getInt(SubhaRepository.KEY_SELECTED_INDEX, 0).first()
+            launch(Dispatchers.Main) {
+                selectedIndex = lastIndex
+                loadData(lastIndex)
+            }
+        }
+    }
+
+    fun selectDhikr(index: Int) {
+        selectedIndex = index
+        viewModelScope.launch(Dispatchers.IO) {
+            repository.saveInt(SubhaRepository.KEY_SELECTED_INDEX, index)
+        }
+        loadData(index)
+    }
+
     fun loadData(dhikrId: Int) {
-        CoroutineScope(Dispatchers.IO).launch {
-            val targetKey = "target_$dhikrId"
-            val counterKey = "counter_$dhikrId"
-            
-            val targetValue = repository.getInt(targetKey, dhikrList[dhikrId].defaultTarget).first()
-            val counterValue = repository.getInt(counterKey, 0).first()
+        loadJob?.cancel()
+        loadJob = viewModelScope.launch(Dispatchers.IO) {
+            val targetValue = repository.getInt("target_$dhikrId", dhikrList[dhikrId].defaultTarget).first()
+            val counterValue = repository.getInt("counter_$dhikrId", 0).first()
             
             launch(Dispatchers.Main) {
                 currentTarget = targetValue
@@ -48,14 +65,16 @@ class SubhaViewModel(applicationContext: Context) : ViewModel() {
         }
     }
 
-    fun increment(context: Context, haptic: HapticFeedback?) {
+    fun increment(context: Context, haptic: HapticFeedback? = null) {
         if (counter < currentTarget) {
             counter++
-            if (counter == currentTarget) {
-                completedStates[dhikrList[selectedIndex].id] = true
+            if (counter >= currentTarget) {
+                completedStates[selectedIndex] = true
                 VibrationUtil.longVibrate(context)
+            } else if (counter % 100 == 0) {
+                VibrationUtil.doubleVibrate(context)
             } else {
-                haptic?.performHapticFeedback(HapticFeedbackType.LongPress)
+                VibrationUtil.shortVibrate(context)
             }
             saveCurrentProgress()
         }
@@ -64,7 +83,7 @@ class SubhaViewModel(applicationContext: Context) : ViewModel() {
     private fun saveCurrentProgress() {
         val id = dhikrList[selectedIndex].id
         val currentCount = counter
-        CoroutineScope(Dispatchers.IO).launch {
+        viewModelScope.launch(Dispatchers.IO) {
             repository.saveInt("counter_$id", currentCount)
         }
     }
@@ -72,18 +91,15 @@ class SubhaViewModel(applicationContext: Context) : ViewModel() {
     fun updateTarget(newTarget: Int) {
         currentTarget = newTarget
         val id = dhikrList[selectedIndex].id
-        CoroutineScope(Dispatchers.IO).launch {
+        viewModelScope.launch(Dispatchers.IO) {
             repository.saveInt("target_$id", newTarget)
         }
-        if (counter < newTarget) {
-            completedStates[id] = false
-        }
+        completedStates[selectedIndex] = counter >= newTarget
     }
 
     fun reset() {
         counter = 0
-        val id = dhikrList[selectedIndex].id
-        completedStates[id] = false
+        completedStates[selectedIndex] = false
         saveCurrentProgress()
     }
 }
