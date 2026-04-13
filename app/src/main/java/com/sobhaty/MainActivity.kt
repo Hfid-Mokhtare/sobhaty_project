@@ -64,11 +64,12 @@ fun SubhaApp(viewModel: SubhaViewModel) {
     val haptic = LocalHapticFeedback.current
     var isFullscreen by remember { mutableStateOf(false) }
     var isCounterVisible by remember { mutableStateOf(true) }
+    var showEditTarget by remember { mutableStateOf(false) }
     
     val view = LocalView.current
     val window = (context as? Activity)?.window
 
-    // Handle Immersive Fullscreen Mode
+    // التحكم في وضع ملء الشاشة (Immersive Mode)
     LaunchedEffect(isFullscreen) {
         if (window != null) {
             val windowInsetsController = WindowCompat.getInsetsController(window, view)
@@ -87,9 +88,8 @@ fun SubhaApp(viewModel: SubhaViewModel) {
             modifier = Modifier
                 .padding(if (isFullscreen) PaddingValues(0.dp) else innerPadding)
                 .fillMaxSize()
-                // في وضع ملء الشاشة، نجعل الشاشة كاملة قابلة للنقر لزيادة العداد
                 .clickable(
-                    enabled = isFullscreen,
+                    enabled = isFullscreen && !showEditTarget,
                     interactionSource = remember { MutableInteractionSource() },
                     indication = null,
                     onClick = { viewModel.increment(context, haptic) }
@@ -97,43 +97,53 @@ fun SubhaApp(viewModel: SubhaViewModel) {
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.SpaceBetween
         ) {
-            // 1. Top Section (Dhikr Chips)
+            // 1. الشريط العلوي
             AnimatedVisibility(
                 visible = !isFullscreen,
-                enter = fadeIn(tween(400)) + expandVertically(tween(400)),
-                exit = fadeOut(tween(400)) + shrinkVertically(tween(400))
+                enter = fadeIn() + expandVertically(),
+                exit = fadeOut() + shrinkVertically()
             ) {
-                TopControls(viewModel)
+                TopControls(viewModel = viewModel)
             }
 
-            // 2. Dhikr Content (Pager: Dhikr, Verse, Hadith)
+            // 2. بطاقة الذكر
             AnimatedVisibility(
-                visible = isCounterVisible,
+                visible = isCounterVisible && !isFullscreen,
                 enter = fadeIn(tween(600)) + expandVertically(tween(600)),
                 exit = fadeOut(tween(600)) + shrinkVertically(tween(600))
             ) {
-                // Bounds check safety
                 if (viewModel.selectedIndex < viewModel.dhikrList.size) {
                     DhikrPager(viewModel.dhikrList[viewModel.selectedIndex])
                 }
             }
 
-            // 3. Central Counter
+            // 3. العداد الملك
+            val currentDhikrName = if (viewModel.selectedIndex < viewModel.dhikrList.size) {
+                val name = viewModel.dhikrList[viewModel.selectedIndex].category
+                if (name.contains("الصلاة على رسول الله")) "الصلاة على النبي ﷺ" else name
+            } else ""
+
             CounterCircle(
                 counter = viewModel.counter,
                 target = viewModel.currentTarget,
                 isVisible = isCounterVisible,
                 isFullscreen = isFullscreen,
-                onIncrement = { viewModel.increment(context, haptic) }
+                isEditingTarget = showEditTarget,
+                onIncrement = { viewModel.increment(context, haptic) },
+                onUpdateTarget = { viewModel.updateTarget(it) },
+                onToggleEditTarget = { showEditTarget = it },
+                categoryName = currentDhikrName
             )
 
-            // 4. Bottom Navigation Labels
+            // 4. أزرار التحكم السفلية
             BottomActions(
                 isCounterVisible = isCounterVisible,
                 isFullscreen = isFullscreen,
+                isEditingTarget = showEditTarget, 
                 onToggleVisibility = { isCounterVisible = !isCounterVisible },
                 onToggleFullscreen = { isFullscreen = !isFullscreen },
-                onReset = { viewModel.reset() }
+                onReset = { viewModel.reset() },
+                onEditTarget = { showEditTarget = !showEditTarget }
             )
         }
     }

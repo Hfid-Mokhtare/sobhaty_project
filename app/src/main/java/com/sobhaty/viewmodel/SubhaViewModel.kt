@@ -1,6 +1,10 @@
 package com.sobhaty.viewmodel
 
 import android.content.Context
+import android.net.ConnectivityManager
+import android.net.Network
+import android.net.NetworkCapabilities
+import android.net.NetworkRequest
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateListOf
@@ -22,79 +26,80 @@ class SubhaViewModel(applicationContext: Context) : ViewModel() {
     private val repository = SubhaRepository(applicationContext)
     private val apiService = SubhaApiService.create()
     private var loadJob: Job? = null
+    private val connectivityManager = applicationContext.getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
     
-    // Default local dhikr for offline use - Removed "المكيال الأوفى"
-    private val localDhikr = listOf(
-        Thikr(0, "الإستغفار", "رَبِّ اغْفِرْ لِي وَ تُبْ عَلَيَّ إِنَّكَ أَنْتَ التَّوَّابُ الرَّحِيمُ", 100),
-        Thikr(2, "الكلمة الطيبة", "لَا إِلَهَ إِلَّا اللهُ", 100),
-        Thikr(3, "التسبيح", "سُبْحَانَ اللهِ وَ بِحَمْدِهِ", 100),
-        Thikr(4, "أدعية التحصين", "لَا إِلَهَ إِلَّا اللهُ وَحْدَهُ لَا شَرِيكَ لَهُ، لَهُ الْمُلْكُ وَ لَهُ الْحَمْدُ وَ هُوَ عَلَى كُلِّ شَيْءٍ قَدِيرٌ", 100)
+    // الأذكار الأساسية - وضع عدم الاتصال
+    private val baseAthkar = listOf(
+        Thikr(1, "الإستغفار", "رَبِّ اغْفِرْ لِي وَتُبْ عَلَيَّ إِنَّكَ أَنْتَ التَّوَّابُ الرَّحِيمُ", 33),
+        Thikr(2, "الصلاة على رسول الله صلى الله عليه وسلم ", "اللَّهُمَّ صَلِّ عَلَى سَيِّدِنَا مُحَمَّدٍ النَّبِيِّ وَأَزْواجِهِ أُمَّهَاتِ الْمُؤْمِنِينَ وَذُرِّيَّتِهِ وَأَهْلِ بَيْتِهِ كَمَا صَلَّيْتَ عَلَى آلِ سَيِّدِنَا إِبْرَاهِيمَ إِنَّكَ حَمِيدٌ مَجِيدٌ", 100),
+        Thikr(3, "الكلمة الطيبة", "لَا إِلَهَ إِلَّا اللَّهُ", 1000),
+        Thikr(4, "تسبيح", "سُبْحَانَ اللَّهِ وَبِحَمْدِهِ", 100),
+        Thikr(5, "أدعية التحصين", "لَا إِلَهَ إِلَّا اللَّهُ وَحْدَهُ لَا شَرِيكَ لَهُ، لَهُ الْمُلْكُ وَلَهُ الْحَمْدُ، وَهُوَ عَلَى كُلِّ شَيْءٍ قَدِيرٌ", 100)
     )
 
-    val dhikrList = mutableStateListOf<Thikr>().apply { addAll(localDhikr) }
+    val dhikrList = mutableStateListOf<Thikr>().apply { addAll(baseAthkar) }
 
     var selectedIndex by mutableIntStateOf(0)
     var counter by mutableIntStateOf(0)
     var currentTarget by mutableIntStateOf(33)
     val completedStates = mutableStateMapOf<Int, Boolean>()
 
+    // مراقب حالة الشبكة
+    private val networkCallback = object : ConnectivityManager.NetworkCallback() {
+        override fun onAvailable(network: Network) {
+            // عندما يتوفر الإنترنت، قم بجلب البيانات
+            fetchRemoteAthkar()
+        }
+    }
+
     init {
-        fetchRemoteAthkar()
         loadInitialState()
+        
+        // تسجيل مراقب الشبكة
+        val networkRequest = NetworkRequest.Builder()
+            .addCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)
+            .build()
+        connectivityManager.registerNetworkCallback(networkRequest, networkCallback)
+        
+        // محاولة جلب مبدئية
+        fetchRemoteAthkar()
+    }
+
+    override fun onCleared() {
+        super.onCleared()
+        // إلغاء تسجيل المراقب عند إغلاق الـ ViewModel لتجنب تسريب الذاكرة
+        try {
+            connectivityManager.unregisterNetworkCallback(networkCallback)
+        } catch (e: Exception) { }
     }
 
     private fun loadInitialState() {
         viewModelScope.launch(Dispatchers.IO) {
-            val lastIndex = repository.getInt(SubhaRepository.KEY_SELECTED_INDEX, 0).first()
+            val lastIndex: Int = repository.getInt(SubhaRepository.KEY_SELECTED_INDEX, 0).first()
             launch(Dispatchers.Main) {
-                // Bounds check since we removed an item
-                val indexToLoad = if (lastIndex < dhikrList.size) lastIndex else 0
-                selectedIndex = indexToLoad
-                loadData(indexToLoad)
+                selectedIndex = if (lastIndex in dhikrList.indices) lastIndex else 0
+                loadData(selectedIndex)
+                updateAllCompletionStates()
             }
         }
     }
 
-    private fun normalizeArabic(text: String): String {
-        return text.replace("ال", "")
-            .replace("أ", "ا")
-            .replace("إ", "ا")
-            .replace("آ", "ا")
-            .trim()
-    }
-
-    private fun fetchRemoteAthkar() {
+    fun fetchRemoteAthkar() {
         viewModelScope.launch(Dispatchers.IO) {
             try {
                 val response = apiService.getAthkar()
                 if (response.isSuccessful) {
-                    val remoteList = response.body()
-                    if (remoteList != null) {
+                    val remoteList: List<Thikr>? = response.body()
+                    remoteList?.let { list ->
                         launch(Dispatchers.Main) {
-                            val updatedList = localDhikr.toMutableList()
-                            remoteList.forEach { remote ->
-                                // Filter out "المكيال الأوفى" from remote as well if it matches the name
-                                if (remote.category != "المكيال الأوفى") {
-                                    val idx = updatedList.indexOfFirst { 
-                                        normalizeArabic(it.category) == normalizeArabic(remote.category) || it.id == remote.id 
-                                    }
-                                    if (idx != -1) {
-                                        updatedList[idx] = remote
-                                    } else {
-                                        updatedList.add(remote)
-                                    }
-                                }
-                            }
-                            
+                            // تحديث القائمة بالبيانات الكاملة
                             dhikrList.clear()
-                            dhikrList.addAll(updatedList)
+                            dhikrList.addAll(list)
                             
-                            if (selectedIndex < dhikrList.size) {
-                                loadData(selectedIndex)
-                            } else {
-                                selectedIndex = 0
-                                loadData(0)
-                            }
+                            // إعادة تحميل الذكر الحالي لعرض النصوص الجديدة فوراً
+                            if (selectedIndex !in dhikrList.indices) selectedIndex = 0
+                            loadData(selectedIndex)
+                            updateAllCompletionStates()
                         }
                     }
                 }
@@ -102,8 +107,22 @@ class SubhaViewModel(applicationContext: Context) : ViewModel() {
         }
     }
 
+    private fun updateAllCompletionStates() {
+        viewModelScope.launch(Dispatchers.IO) {
+            dhikrList.forEachIndexed { index, dhikr ->
+                val targetKey = "target_${dhikr.id}"
+                val counterKey = "counter_${dhikr.id}"
+                val savedTarget: Int = repository.getInt(targetKey, dhikr.count).first()
+                val savedCounter: Int = repository.getInt(counterKey, 0).first()
+                launch(Dispatchers.Main) {
+                    completedStates[index] = savedCounter >= savedTarget
+                }
+            }
+        }
+    }
+
     fun selectDhikr(index: Int) {
-        if (index < dhikrList.size) {
+        if (index in dhikrList.indices) {
             selectedIndex = index
             viewModelScope.launch(Dispatchers.IO) {
                 repository.saveInt(SubhaRepository.KEY_SELECTED_INDEX, index)
@@ -112,21 +131,21 @@ class SubhaViewModel(applicationContext: Context) : ViewModel() {
         }
     }
 
-    fun loadData(dhikrIdInList: Int) {
-        if (dhikrIdInList >= dhikrList.size) return
-        val dhikr = dhikrList[dhikrIdInList]
+    fun loadData(index: Int) {
+        if (index !in dhikrList.indices) return
+        val dhikr = dhikrList[index]
         loadJob?.cancel()
         loadJob = viewModelScope.launch(Dispatchers.IO) {
             val targetKey = "target_${dhikr.id}"
             val counterKey = "counter_${dhikr.id}"
             
-            val targetValue = repository.getInt(targetKey, dhikr.count).first()
-            val counterValue = repository.getInt(counterKey, 0).first()
+            val targetValue: Int = repository.getInt(targetKey, dhikr.count).first()
+            val counterValue: Int = repository.getInt(counterKey, 0).first()
             
             launch(Dispatchers.Main) {
                 currentTarget = targetValue
                 counter = counterValue
-                completedStates[dhikrIdInList] = counterValue >= targetValue
+                completedStates[index] = counterValue >= targetValue
             }
         }
     }
@@ -137,8 +156,6 @@ class SubhaViewModel(applicationContext: Context) : ViewModel() {
             if (counter >= currentTarget) {
                 completedStates[selectedIndex] = true
                 VibrationUtil.longVibrate(context)
-            } else if (counter % 100 == 0) {
-                VibrationUtil.doubleVibrate(context)
             } else {
                 VibrationUtil.shortVibrate(context)
             }
@@ -147,16 +164,15 @@ class SubhaViewModel(applicationContext: Context) : ViewModel() {
     }
 
     private fun saveCurrentProgress() {
-        if (selectedIndex >= dhikrList.size) return
+        if (selectedIndex !in dhikrList.indices) return
         val id = dhikrList[selectedIndex].id
-        val currentCount = counter
         viewModelScope.launch(Dispatchers.IO) {
-            repository.saveInt("counter_$id", currentCount)
+            repository.saveInt("counter_$id", counter)
         }
     }
 
     fun updateTarget(newTarget: Int) {
-        if (selectedIndex >= dhikrList.size) return
+        if (selectedIndex !in dhikrList.indices) return
         currentTarget = newTarget
         val id = dhikrList[selectedIndex].id
         viewModelScope.launch(Dispatchers.IO) {

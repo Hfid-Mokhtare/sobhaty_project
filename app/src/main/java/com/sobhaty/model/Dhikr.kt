@@ -6,13 +6,17 @@ import androidx.compose.ui.text.googlefonts.GoogleFont
 import com.sobhaty.R
 import com.google.gson.annotations.SerializedName
 
-// موديل الذكر الشامل
+// الكائن الرئيسي الذي يحتوي على القائمة كما في الـ JSON
+data class AthkarResponse(
+    @SerializedName("athkar")
+    val athkar: List<Thikr>
+)
+
 data class Thikr(
     @SerializedName("id") val id: Int,
     @SerializedName("category") val category: String,
     @SerializedName("text") val text: String,
     @SerializedName("count") val count: Int,
-    @SerializedName("title") val title: String? = null,
     @SerializedName("verses") val verses: List<Verse>? = null,
     @SerializedName("hadith") val hadith: Hadith? = null
 )
@@ -20,8 +24,11 @@ data class Thikr(
 data class Verse(
     @SerializedName("text") val text: String,
     @SerializedName("surah") val surah: String,
-    @SerializedName("ayah_number") val ayahNumber: String
-)
+    @SerializedName("ayah_number") val ayahNumber: Any? = null // استخدم Any لأن الرقم قد يكون string أو int
+) {
+    val displayAyahNumber: String
+        get() = ayahNumber?.toString() ?: ""
+}
 
 data class Hadith(
     @SerializedName("text") val text: String,

@@ -6,6 +6,14 @@
         <entry key="Firebase Crashlytics">
           <value>
             <InsightsFilterSettings>
+              <option name="connection">
+                <ConnectionSetting>
+                  <option name="appId" value="com.sobhaty" />
+                  <option name="mobileSdkAppId" value="1:137103003551:android:01ba9c0b1ba11c0910f7aa" />
+                  <option name="projectId" value="sobhaty-ef1b4" />
+                  <option name="projectNumber" value="137103003551" />
+                </ConnectionSetting>
+              </option>
               <option name="signal" value="SIGNAL_UNSPECIFIED" />
               <option name="timeIntervalDays" value="THIRTY_DAYS" />
               <option name="visibilityType" value="ALL" />
