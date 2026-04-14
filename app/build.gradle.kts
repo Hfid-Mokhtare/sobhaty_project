@@ -21,7 +21,11 @@ android {
 
     buildTypes {
         release {
-            isMinifyEnabled = false
+            // تفعيل R8 لتقليل الحجم وحماية الكود
+            isMinifyEnabled = true
+            // تفعيل حذف الموارد غير المستخدمة
+            isShrinkResources = true
+            
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"

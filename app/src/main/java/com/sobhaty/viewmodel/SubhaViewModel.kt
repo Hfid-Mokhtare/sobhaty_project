@@ -21,14 +21,15 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 class SubhaViewModel(applicationContext: Context) : ViewModel() {
     private val repository = SubhaRepository(applicationContext)
     private val apiService = SubhaApiService.create()
     private var loadJob: Job? = null
+    private var fetchJob: Job? = null
     private val connectivityManager = applicationContext.getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
     
-    // الأذكار الأساسية - وضع عدم الاتصال
     private val baseAthkar = listOf(
         Thikr(1, "الإستغفار", "رَبِّ اغْفِرْ لِي وَتُبْ عَلَيَّ إِنَّكَ أَنْتَ التَّوَّابُ الرَّحِيمُ", 33),
         Thikr(2, "الصلاة على رسول الله صلى الله عليه وسلم ", "اللَّهُمَّ صَلِّ عَلَى سَيِّدِنَا مُحَمَّدٍ النَّبِيِّ وَأَزْواجِهِ أُمَّهَاتِ الْمُؤْمِنِينَ وَذُرِّيَّتِهِ وَأَهْلِ بَيْتِهِ كَمَا صَلَّيْتَ عَلَى آلِ سَيِّدِنَا إِبْرَاهِيمَ إِنَّكَ حَمِيدٌ مَجِيدٌ", 100),
@@ -44,10 +45,8 @@ class SubhaViewModel(applicationContext: Context) : ViewModel() {
     var currentTarget by mutableIntStateOf(33)
     val completedStates = mutableStateMapOf<Int, Boolean>()
 
-    // مراقب حالة الشبكة
     private val networkCallback = object : ConnectivityManager.NetworkCallback() {
         override fun onAvailable(network: Network) {
-            // عندما يتوفر الإنترنت، قم بجلب البيانات
             fetchRemoteAthkar()
         }
     }
@@ -55,19 +54,16 @@ class SubhaViewModel(applicationContext: Context) : ViewModel() {
     init {
         loadInitialState()
         
-        // تسجيل مراقب الشبكة
         val networkRequest = NetworkRequest.Builder()
             .addCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)
             .build()
         connectivityManager.registerNetworkCallback(networkRequest, networkCallback)
         
-        // محاولة جلب مبدئية
-        fetchRemoteAthkar()
+        // لا نحتاج لاستدعاء fetch هنا يدوياً لأن onAvailable سيعمل تلقائياً عند التشغيل إذا وجد إنترنت
     }
 
     override fun onCleared() {
         super.onCleared()
-        // إلغاء تسجيل المراقب عند إغلاق الـ ViewModel لتجنب تسريب الذاكرة
         try {
             connectivityManager.unregisterNetworkCallback(networkCallback)
         } catch (e: Exception) { }
@@ -76,7 +72,7 @@ class SubhaViewModel(applicationContext: Context) : ViewModel() {
     private fun loadInitialState() {
         viewModelScope.launch(Dispatchers.IO) {
             val lastIndex: Int = repository.getInt(SubhaRepository.KEY_SELECTED_INDEX, 0).first()
-            launch(Dispatchers.Main) {
+            withContext(Dispatchers.Main) {
                 selectedIndex = if (lastIndex in dhikrList.indices) lastIndex else 0
                 loadData(selectedIndex)
                 updateAllCompletionStates()
@@ -85,18 +81,19 @@ class SubhaViewModel(applicationContext: Context) : ViewModel() {
     }
 
     fun fetchRemoteAthkar() {
-        viewModelScope.launch(Dispatchers.IO) {
+        // نمنع تداخل عمليات الجلب
+        if (fetchJob?.isActive == true) return
+        
+        fetchJob = viewModelScope.launch(Dispatchers.IO) {
             try {
                 val response = apiService.getAthkar()
                 if (response.isSuccessful) {
-                    val remoteList: List<Thikr>? = response.body()
-                    remoteList?.let { list ->
-                        launch(Dispatchers.Main) {
-                            // تحديث القائمة بالبيانات الكاملة
+                    val remoteList = response.body()
+                    if (!remoteList.isNullOrEmpty()) {
+                        withContext(Dispatchers.Main) {
                             dhikrList.clear()
-                            dhikrList.addAll(list)
+                            dhikrList.addAll(remoteList)
                             
-                            // إعادة تحميل الذكر الحالي لعرض النصوص الجديدة فوراً
                             if (selectedIndex !in dhikrList.indices) selectedIndex = 0
                             loadData(selectedIndex)
                             updateAllCompletionStates()
@@ -108,13 +105,15 @@ class SubhaViewModel(applicationContext: Context) : ViewModel() {
     }
 
     private fun updateAllCompletionStates() {
+        // نأخذ نسخة ثابتة من القائمة للعمل عليها في الخلفية لتجنب تداخل القراءة والكتابة
+        val snapshot = dhikrList.toList()
         viewModelScope.launch(Dispatchers.IO) {
-            dhikrList.forEachIndexed { index, dhikr ->
+            snapshot.forEachIndexed { index, dhikr ->
                 val targetKey = "target_${dhikr.id}"
                 val counterKey = "counter_${dhikr.id}"
                 val savedTarget: Int = repository.getInt(targetKey, dhikr.count).first()
                 val savedCounter: Int = repository.getInt(counterKey, 0).first()
-                launch(Dispatchers.Main) {
+                withContext(Dispatchers.Main) {
                     completedStates[index] = savedCounter >= savedTarget
                 }
             }
@@ -142,7 +141,7 @@ class SubhaViewModel(applicationContext: Context) : ViewModel() {
             val targetValue: Int = repository.getInt(targetKey, dhikr.count).first()
             val counterValue: Int = repository.getInt(counterKey, 0).first()
             
-            launch(Dispatchers.Main) {
+            withContext(Dispatchers.Main) {
                 currentTarget = targetValue
                 counter = counterValue
                 completedStates[index] = counterValue >= targetValue
