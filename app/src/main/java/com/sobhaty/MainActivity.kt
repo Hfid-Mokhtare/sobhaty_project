@@ -19,6 +19,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.unit.dp
+import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
 import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
@@ -32,6 +33,9 @@ class MainActivity : ComponentActivity() {
     private lateinit var viewModel: SubhaViewModel
 
     override fun onCreate(savedInstanceState: Bundle?) {
+        // 1. تفعيل شاشة البداية قبل أي شيء آخر
+        installSplashScreen()
+        
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
         
@@ -43,7 +47,7 @@ class MainActivity : ComponentActivity() {
         })[SubhaViewModel::class.java]
 
         setContent {
-            SobhatyTheme { 
+            SobhatyTheme(darkTheme = viewModel.isDarkMode) { 
                 SubhaApp(viewModel) 
             }
         }
@@ -69,7 +73,6 @@ fun SubhaApp(viewModel: SubhaViewModel) {
     val view = LocalView.current
     val window = (context as? Activity)?.window
 
-    // التحكم في وضع ملء الشاشة (Immersive Mode)
     LaunchedEffect(isFullscreen) {
         if (window != null) {
             val windowInsetsController = WindowCompat.getInsetsController(window, view)
@@ -97,7 +100,6 @@ fun SubhaApp(viewModel: SubhaViewModel) {
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.SpaceBetween
         ) {
-            // 1. الشريط العلوي
             AnimatedVisibility(
                 visible = !isFullscreen,
                 enter = fadeIn() + expandVertically(),
@@ -106,7 +108,6 @@ fun SubhaApp(viewModel: SubhaViewModel) {
                 TopControls(viewModel = viewModel)
             }
 
-            // 2. بطاقة الذكر
             AnimatedVisibility(
                 visible = isCounterVisible && !isFullscreen,
                 enter = fadeIn(tween(600)) + expandVertically(tween(600)),
@@ -117,7 +118,6 @@ fun SubhaApp(viewModel: SubhaViewModel) {
                 }
             }
 
-            // 3. العداد الملك
             val currentDhikrName = if (viewModel.selectedIndex < viewModel.dhikrList.size) {
                 val name = viewModel.dhikrList[viewModel.selectedIndex].category
                 if (name.contains("الصلاة على رسول الله")) "الصلاة على النبي ﷺ" else name
@@ -132,14 +132,15 @@ fun SubhaApp(viewModel: SubhaViewModel) {
                 onIncrement = { viewModel.increment(context, haptic) },
                 onUpdateTarget = { viewModel.updateTarget(it) },
                 onToggleEditTarget = { showEditTarget = it },
+                viewModel = viewModel,
                 categoryName = currentDhikrName
             )
 
-            // 4. أزرار التحكم السفلية
             BottomActions(
                 isCounterVisible = isCounterVisible,
                 isFullscreen = isFullscreen,
-                isEditingTarget = showEditTarget, 
+                isEditingTarget = showEditTarget,
+                viewModel = viewModel,
                 onToggleVisibility = { isCounterVisible = !isCounterVisible },
                 onToggleFullscreen = { isFullscreen = !isFullscreen },
                 onReset = { viewModel.reset() },

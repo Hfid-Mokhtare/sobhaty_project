@@ -13,17 +13,15 @@ android {
         applicationId = "com.sobhaty"
         minSdk = 24
         targetSdk = 36
-        versionCode = 1
-        versionName = "1.0"
+        versionCode = 2
+        versionName = "1.1"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
     buildTypes {
         release {
-            // تفعيل R8 لتقليل الحجم وحماية الكود
             isMinifyEnabled = true
-            // تفعيل حذف الموارد غير المستخدمة
             isShrinkResources = true
             
             proguardFiles(
@@ -62,6 +60,9 @@ dependencies {
     implementation(libs.androidx.compose.runtime)
     implementation(libs.androidx.glance.appwidget)
     implementation(libs.androidx.glance.material3)
+
+    // مكتبة شاشة البداية الرسمية
+    implementation("androidx.core:core-splashscreen:1.0.1")
 
     // Networking
     implementation(libs.retrofit)

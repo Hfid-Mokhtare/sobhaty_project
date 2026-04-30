@@ -9,6 +9,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateMapOf
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.hapticfeedback.HapticFeedback
 import androidx.lifecycle.ViewModel
@@ -32,10 +33,10 @@ class SubhaViewModel(applicationContext: Context) : ViewModel() {
     
     private val baseAthkar = listOf(
         Thikr(1, "الإستغفار", "رَبِّ اغْفِرْ لِي وَتُبْ عَلَيَّ إِنَّكَ أَنْتَ التَّوَّابُ الرَّحِيمُ", 33),
-        Thikr(2, "الصلاة على رسول الله صلى الله عليه وسلم ", "اللَّهُمَّ صَلِّ عَلَى سَيِّدِنَا مُحَمَّدٍ النَّبِيِّ وَأَزْواجِهِ أُمَّهَاتِ الْمُؤْمِنِينَ وَذُرِّيَّتِهِ وَأَهْلِ بَيْتِهِ كَمَا صَلَّيْتَ عَلَى آلِ سَيِّدِنَا إِبْرَاهِيمَ إِنَّكَ حَمِيدٌ مَجِيدٌ", 100),
+        Thikr(2, "الصلاة على النبي ﷺ", "اللَّهُمَّ صَلِّ عَلَى سَيِّدِنَا مُحَمَّدٍ النَّبِيِّ وَأَزْواجِهِ أُمَّهَاتِ الْمُؤْمِنِينَ وَذُرِّيَّتِهِ وَأَهْلِ بَيْتِهِ كَمَا صَلَّيْتَ عَلَى آلِ سَيِّدِنَا إِبْرَاهِيمَ إِنَّكَ حَمِيدٌ مَجِيدٌ", 100),
         Thikr(3, "الكلمة الطيبة", "لَا إِلَهَ إِلَّا اللَّهُ", 1000),
         Thikr(4, "تسبيح", "سُبْحَانَ اللَّهِ وَبِحَمْدِهِ", 100),
-        Thikr(5, "أدعية التحصين", "لَا إِلَهَ إِلَّا اللَّهُ وَحْدَهُ لَا شَرِيكَ لَهُ، لَهُ الْمُلْكُ وَلَهُ الْحَمْدُ، وَهُوَ عَلَى كُلِّ شَيْءٍ قَدِيرٌ", 100)
+        Thikr(5, "أدعية التحصين", "لَا إِلَهَ إِلَّا اللَّهُ وَحْدَهُ لَا شَرِيكَ لَهُ، لَهُ الْمُلْكُ وَلَهُ الْحَمْدُ، وَهُوَ عَلَى كُلِّ شَيْءٍ قديرٌ", 100)
     )
 
     val dhikrList = mutableStateListOf<Thikr>().apply { addAll(baseAthkar) }
@@ -44,6 +45,13 @@ class SubhaViewModel(applicationContext: Context) : ViewModel() {
     var counter by mutableIntStateOf(0)
     var currentTarget by mutableIntStateOf(33)
     val completedStates = mutableStateMapOf<Int, Boolean>()
+    
+    var isOnboardingCompleted by mutableStateOf(true)
+    var isTooltipShown by mutableStateOf(true)
+    var isBottomBarPulseShown by mutableStateOf(true)
+    
+    // وضع المظلم (Dark Mode)
+    var isDarkMode by mutableStateOf(true)
 
     private val networkCallback = object : ConnectivityManager.NetworkCallback() {
         override fun onAvailable(network: Network) {
@@ -58,8 +66,6 @@ class SubhaViewModel(applicationContext: Context) : ViewModel() {
             .addCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)
             .build()
         connectivityManager.registerNetworkCallback(networkRequest, networkCallback)
-        
-        // لا نحتاج لاستدعاء fetch هنا يدوياً لأن onAvailable سيعمل تلقائياً عند التشغيل إذا وجد إنترنت
     }
 
     override fun onCleared() {
@@ -72,18 +78,53 @@ class SubhaViewModel(applicationContext: Context) : ViewModel() {
     private fun loadInitialState() {
         viewModelScope.launch(Dispatchers.IO) {
             val lastIndex: Int = repository.getInt(SubhaRepository.KEY_SELECTED_INDEX, 0).first()
+            val onboardingDone: Boolean = repository.getBoolean(SubhaRepository.KEY_ONBOARDING_COMPLETED, false).first()
+            val tooltipDone: Boolean = repository.getBoolean(SubhaRepository.KEY_TOOLTIP_SHOWN, false).first()
+            val pulseDone: Boolean = repository.getBoolean(SubhaRepository.KEY_BOTTOM_BAR_PULSE_SHOWN, false).first()
+            val darkMode: Boolean = repository.getBoolean(SubhaRepository.KEY_DARK_MODE, true).first() // القيمة الافتراضية true
+            
             withContext(Dispatchers.Main) {
                 selectedIndex = if (lastIndex in dhikrList.indices) lastIndex else 0
+                isOnboardingCompleted = onboardingDone
+                isTooltipShown = tooltipDone
+                isBottomBarPulseShown = pulseDone
+                isDarkMode = darkMode
                 loadData(selectedIndex)
                 updateAllCompletionStates()
             }
         }
     }
 
+    fun toggleDarkMode() {
+        isDarkMode = !isDarkMode
+        viewModelScope.launch(Dispatchers.IO) {
+            repository.saveBoolean(SubhaRepository.KEY_DARK_MODE, isDarkMode)
+        }
+    }
+
+    fun completeOnboarding() {
+        isOnboardingCompleted = true
+        viewModelScope.launch(Dispatchers.IO) {
+            repository.saveBoolean(SubhaRepository.KEY_ONBOARDING_COMPLETED, true)
+        }
+    }
+
+    fun markTooltipAsShown() {
+        isTooltipShown = true
+        viewModelScope.launch(Dispatchers.IO) {
+            repository.saveBoolean(SubhaRepository.KEY_TOOLTIP_SHOWN, true)
+        }
+    }
+
+    fun markPulseAsShown() {
+        isBottomBarPulseShown = true
+        viewModelScope.launch(Dispatchers.IO) {
+            repository.saveBoolean(SubhaRepository.KEY_BOTTOM_BAR_PULSE_SHOWN, true)
+        }
+    }
+
     fun fetchRemoteAthkar() {
-        // نمنع تداخل عمليات الجلب
         if (fetchJob?.isActive == true) return
-        
         fetchJob = viewModelScope.launch(Dispatchers.IO) {
             try {
                 val response = apiService.getAthkar()
@@ -93,7 +134,6 @@ class SubhaViewModel(applicationContext: Context) : ViewModel() {
                         withContext(Dispatchers.Main) {
                             dhikrList.clear()
                             dhikrList.addAll(remoteList)
-                            
                             if (selectedIndex !in dhikrList.indices) selectedIndex = 0
                             loadData(selectedIndex)
                             updateAllCompletionStates()
@@ -105,7 +145,6 @@ class SubhaViewModel(applicationContext: Context) : ViewModel() {
     }
 
     private fun updateAllCompletionStates() {
-        // نأخذ نسخة ثابتة من القائمة للعمل عليها في الخلفية لتجنب تداخل القراءة والكتابة
         val snapshot = dhikrList.toList()
         viewModelScope.launch(Dispatchers.IO) {
             snapshot.forEachIndexed { index, dhikr ->
@@ -137,10 +176,8 @@ class SubhaViewModel(applicationContext: Context) : ViewModel() {
         loadJob = viewModelScope.launch(Dispatchers.IO) {
             val targetKey = "target_${dhikr.id}"
             val counterKey = "counter_${dhikr.id}"
-            
             val targetValue: Int = repository.getInt(targetKey, dhikr.count).first()
             val counterValue: Int = repository.getInt(counterKey, 0).first()
-            
             withContext(Dispatchers.Main) {
                 currentTarget = targetValue
                 counter = counterValue
