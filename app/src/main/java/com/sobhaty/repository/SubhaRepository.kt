@@ -16,10 +16,13 @@ class SubhaRepository(private val context: Context) {
     
     companion object {
         const val KEY_SELECTED_INDEX = "selected_index"
-        const val KEY_ONBOARDING_COMPLETED = "onboarding_completed"
-        const val KEY_TOOLTIP_SHOWN = "tooltip_shown"
-        const val KEY_BOTTOM_BAR_PULSE_SHOWN = "bottom_bar_pulse_shown"
-        const val KEY_DARK_MODE = "is_dark_mode" // مفتاح جديد
+        
+        // استخدام V12 لضمان إعادة ظهور الإرشادات وكلمات المنهاج النبوي للجميع
+        const val KEY_ONBOARDING_COMPLETED_V12 = "onboarding_completed_v12"
+        const val KEY_TOOLTIP_SHOWN_V12 = "tooltip_shown_v12"
+        const val KEY_BOTTOM_BAR_PULSE_SHOWN_V12 = "bottom_bar_pulse_shown_v12"
+        
+        const val KEY_DARK_MODE = "is_dark_mode"
     }
 
     fun getInt(key: String, default: Int): Flow<Int> = 

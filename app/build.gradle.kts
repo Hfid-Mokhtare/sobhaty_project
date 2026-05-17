@@ -13,8 +13,8 @@ android {
         applicationId = "com.sobhaty"
         minSdk = 24
         targetSdk = 36
-        versionCode = 2
-        versionName = "1.1"
+        versionCode = 4
+        versionName = "1.3"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
@@ -61,14 +61,11 @@ dependencies {
     implementation(libs.androidx.glance.appwidget)
     implementation(libs.androidx.glance.material3)
 
-    // مكتبة شاشة البداية الرسمية
     implementation("androidx.core:core-splashscreen:1.0.1")
 
-    // Networking
     implementation(libs.retrofit)
     implementation(libs.retrofit.gson)
 
-    // Firebase (Using Version Catalog)
     implementation(platform(libs.firebase.bom))
     implementation(libs.firebase.analytics)
     implementation(libs.firebase.database)

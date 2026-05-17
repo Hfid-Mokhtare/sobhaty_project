@@ -34,7 +34,6 @@ fun TopControls(viewModel: SubhaViewModel) {
             modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            // زر تبديل الوضع المظلم/الفاتح
             IconButton(
                 onClick = { viewModel.toggleDarkMode() },
                 modifier = Modifier
@@ -44,7 +43,7 @@ fun TopControls(viewModel: SubhaViewModel) {
             ) {
                 Icon(
                     imageVector = if (viewModel.isDarkMode) Icons.Default.LightMode else Icons.Default.DarkMode,
-                    contentDescription = "Toggle Mode",
+                    contentDescription = null,
                     modifier = Modifier.size(20.dp),
                     tint = MaterialTheme.colorScheme.primary
                 )
@@ -95,7 +94,7 @@ fun BottomActions(
     
     LaunchedEffect(viewModel.isOnboardingCompleted, viewModel.isBottomBarPulseShown) {
         if (viewModel.isOnboardingCompleted && !viewModel.isBottomBarPulseShown) {
-            delay(1500)
+            delay(2000)
             showPulse = true
             delay(5000)
             showPulse = false
@@ -147,34 +146,21 @@ fun BottomActionItem(
     val infiniteTransition = rememberInfiniteTransition(label = "pulse")
     val pulseScale by infiniteTransition.animateFloat(
         initialValue = 1f,
-        targetValue = 1.3f,
-        animationSpec = infiniteRepeatable(
-            animation = tween(1000, easing = LinearEasing),
-            repeatMode = RepeatMode.Restart
-        ),
+        targetValue = 1.4f,
+        animationSpec = infiniteRepeatable(animation = tween(1200), repeatMode = RepeatMode.Restart),
         label = "scale"
     )
     val pulseAlpha by infiniteTransition.animateFloat(
         initialValue = 0.6f,
         targetValue = 0f,
-        animationSpec = infiniteRepeatable(
-            animation = tween(1000, easing = LinearEasing),
-            repeatMode = RepeatMode.Restart
-        ),
+        animationSpec = infiniteRepeatable(animation = tween(1200), repeatMode = RepeatMode.Restart),
         label = "alpha"
     )
 
     Box(contentAlignment = Alignment.Center) {
         if (hasPulse) {
-            Box(
-                modifier = Modifier
-                    .size(48.dp)
-                    .scale(pulseScale)
-                    .alpha(pulseAlpha)
-                    .border(2.dp, MaterialTheme.colorScheme.primary, CircleShape)
-            )
+            Box(modifier = Modifier.size(52.dp).scale(pulseScale).alpha(pulseAlpha).border(2.dp, MaterialTheme.colorScheme.primary, CircleShape))
         }
-
         Column(
             horizontalAlignment = Alignment.CenterHorizontally, 
             modifier = Modifier

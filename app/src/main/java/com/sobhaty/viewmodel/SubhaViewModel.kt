@@ -15,6 +15,7 @@ import androidx.compose.ui.hapticfeedback.HapticFeedback
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.sobhaty.api.SubhaApiService
+import com.sobhaty.model.DefaultData
 import com.sobhaty.model.Thikr
 import com.sobhaty.repository.SubhaRepository
 import com.sobhaty.util.VibrationUtil
@@ -31,57 +32,45 @@ class SubhaViewModel(applicationContext: Context) : ViewModel() {
     private var fetchJob: Job? = null
     private val connectivityManager = applicationContext.getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
     
-    private val baseAthkar = listOf(
-        Thikr(1, "الإستغفار", "رَبِّ اغْفِرْ لِي وَتُبْ عَلَيَّ إِنَّكَ أَنْتَ التَّوَّابُ الرَّحِيمُ", 33),
-        Thikr(2, "الصلاة على النبي ﷺ", "اللَّهُمَّ صَلِّ عَلَى سَيِّدِنَا مُحَمَّدٍ النَّبِيِّ وَأَزْواجِهِ أُمَّهَاتِ الْمُؤْمِنِينَ وَذُرِّيَّتِهِ وَأَهْلِ بَيْتِهِ كَمَا صَلَّيْتَ عَلَى آلِ سَيِّدِنَا إِبْرَاهِيمَ إِنَّكَ حَمِيدٌ مَجِيدٌ", 100),
-        Thikr(3, "الكلمة الطيبة", "لَا إِلَهَ إِلَّا اللَّهُ", 1000),
-        Thikr(4, "تسبيح", "سُبْحَانَ اللَّهِ وَبِحَمْدِهِ", 100),
-        Thikr(5, "أدعية التحصين", "لَا إِلَهَ إِلَّا اللَّهُ وَحْدَهُ لَا شَرِيكَ لَهُ، لَهُ الْمُلْكُ وَلَهُ الْحَمْدُ، وَهُوَ عَلَى كُلِّ شَيْءٍ قديرٌ", 100)
-    )
-
-    val dhikrList = mutableStateListOf<Thikr>().apply { addAll(baseAthkar) }
+    val dhikrList = mutableStateListOf<Thikr>().apply { addAll(DefaultData.baseAthkar) }
 
     var selectedIndex by mutableIntStateOf(0)
     var counter by mutableIntStateOf(0)
     var currentTarget by mutableIntStateOf(33)
     val completedStates = mutableStateMapOf<Int, Boolean>()
     
-    var isOnboardingCompleted by mutableStateOf(true)
+    // Default values to true to avoid flicker, will load actual state immediately
+    var isOnboardingCompleted by mutableStateOf(true) 
     var isTooltipShown by mutableStateOf(true)
     var isBottomBarPulseShown by mutableStateOf(true)
     
-    // وضع المظلم (Dark Mode)
     var isDarkMode by mutableStateOf(true)
-
-    private val networkCallback = object : ConnectivityManager.NetworkCallback() {
-        override fun onAvailable(network: Network) {
-            fetchRemoteAthkar()
-        }
-    }
 
     init {
         loadInitialState()
-        
+        setupNetworkCallback()
+    }
+
+    private fun setupNetworkCallback() {
         val networkRequest = NetworkRequest.Builder()
             .addCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)
             .build()
-        connectivityManager.registerNetworkCallback(networkRequest, networkCallback)
-    }
-
-    override fun onCleared() {
-        super.onCleared()
-        try {
-            connectivityManager.unregisterNetworkCallback(networkCallback)
-        } catch (e: Exception) { }
+        connectivityManager.registerNetworkCallback(networkRequest, object : ConnectivityManager.NetworkCallback() {
+            override fun onAvailable(network: Network) {
+                fetchRemoteAthkar()
+            }
+        })
     }
 
     private fun loadInitialState() {
         viewModelScope.launch(Dispatchers.IO) {
-            val lastIndex: Int = repository.getInt(SubhaRepository.KEY_SELECTED_INDEX, 0).first()
-            val onboardingDone: Boolean = repository.getBoolean(SubhaRepository.KEY_ONBOARDING_COMPLETED, false).first()
-            val tooltipDone: Boolean = repository.getBoolean(SubhaRepository.KEY_TOOLTIP_SHOWN, false).first()
-            val pulseDone: Boolean = repository.getBoolean(SubhaRepository.KEY_BOTTOM_BAR_PULSE_SHOWN, false).first()
-            val darkMode: Boolean = repository.getBoolean(SubhaRepository.KEY_DARK_MODE, true).first() // القيمة الافتراضية true
+            val lastIndex = repository.getInt(SubhaRepository.KEY_SELECTED_INDEX, 0).first()
+            
+            // تم تحديث المفاتيح هنا إلى V12 لتطابق ما هو موجود في الـ Repository لضمان إعادة الظهور للجميع
+            val onboardingDone = repository.getBoolean(SubhaRepository.KEY_ONBOARDING_COMPLETED_V12, false).first()
+            val tooltipDone = repository.getBoolean(SubhaRepository.KEY_TOOLTIP_SHOWN_V12, false).first()
+            val pulseDone = repository.getBoolean(SubhaRepository.KEY_BOTTOM_BAR_PULSE_SHOWN_V12, false).first()
+            val darkMode = repository.getBoolean(SubhaRepository.KEY_DARK_MODE, true).first()
             
             withContext(Dispatchers.Main) {
                 selectedIndex = if (lastIndex in dhikrList.indices) lastIndex else 0
@@ -105,21 +94,21 @@ class SubhaViewModel(applicationContext: Context) : ViewModel() {
     fun completeOnboarding() {
         isOnboardingCompleted = true
         viewModelScope.launch(Dispatchers.IO) {
-            repository.saveBoolean(SubhaRepository.KEY_ONBOARDING_COMPLETED, true)
+            repository.saveBoolean(SubhaRepository.KEY_ONBOARDING_COMPLETED_V12, true)
         }
     }
 
     fun markTooltipAsShown() {
         isTooltipShown = true
         viewModelScope.launch(Dispatchers.IO) {
-            repository.saveBoolean(SubhaRepository.KEY_TOOLTIP_SHOWN, true)
+            repository.saveBoolean(SubhaRepository.KEY_TOOLTIP_SHOWN_V12, true)
         }
     }
 
     fun markPulseAsShown() {
         isBottomBarPulseShown = true
         viewModelScope.launch(Dispatchers.IO) {
-            repository.saveBoolean(SubhaRepository.KEY_BOTTOM_BAR_PULSE_SHOWN, true)
+            repository.saveBoolean(SubhaRepository.KEY_BOTTOM_BAR_PULSE_SHOWN_V12, true)
         }
     }
 
@@ -129,7 +118,8 @@ class SubhaViewModel(applicationContext: Context) : ViewModel() {
             try {
                 val response = apiService.getAthkar()
                 if (response.isSuccessful) {
-                    val remoteList = response.body()
+                    val remoteData = response.body()
+                    val remoteList = remoteData?.athkar
                     if (!remoteList.isNullOrEmpty()) {
                         withContext(Dispatchers.Main) {
                             dhikrList.clear()
@@ -150,8 +140,8 @@ class SubhaViewModel(applicationContext: Context) : ViewModel() {
             snapshot.forEachIndexed { index, dhikr ->
                 val targetKey = "target_${dhikr.id}"
                 val counterKey = "counter_${dhikr.id}"
-                val savedTarget: Int = repository.getInt(targetKey, dhikr.count).first()
-                val savedCounter: Int = repository.getInt(counterKey, 0).first()
+                val savedTarget = repository.getInt(targetKey, dhikr.count).first()
+                val savedCounter = repository.getInt(counterKey, 0).first()
                 withContext(Dispatchers.Main) {
                     completedStates[index] = savedCounter >= savedTarget
                 }
@@ -176,8 +166,8 @@ class SubhaViewModel(applicationContext: Context) : ViewModel() {
         loadJob = viewModelScope.launch(Dispatchers.IO) {
             val targetKey = "target_${dhikr.id}"
             val counterKey = "counter_${dhikr.id}"
-            val targetValue: Int = repository.getInt(targetKey, dhikr.count).first()
-            val counterValue: Int = repository.getInt(counterKey, 0).first()
+            val targetValue = repository.getInt(targetKey, dhikr.count).first()
+            val counterValue = repository.getInt(counterKey, 0).first()
             withContext(Dispatchers.Main) {
                 currentTarget = targetValue
                 counter = counterValue

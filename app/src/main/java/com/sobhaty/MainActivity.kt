@@ -33,9 +33,7 @@ class MainActivity : ComponentActivity() {
     private lateinit var viewModel: SubhaViewModel
 
     override fun onCreate(savedInstanceState: Bundle?) {
-        // 1. تفعيل شاشة البداية قبل أي شيء آخر
         installSplashScreen()
-        
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
         
@@ -48,7 +46,11 @@ class MainActivity : ComponentActivity() {
 
         setContent {
             SobhatyTheme(darkTheme = viewModel.isDarkMode) { 
-                SubhaApp(viewModel) 
+                Box(modifier = Modifier.fillMaxSize()) {
+                    SubhaApp(viewModel) 
+                    // عرض شاشة الشرح الترحيبي كطبقة علوية
+                    OnboardingOverlay(viewModel)
+                }
             }
         }
     }
