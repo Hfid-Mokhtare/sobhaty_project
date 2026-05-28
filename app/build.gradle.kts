@@ -2,7 +2,7 @@ plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.android)
     alias(libs.plugins.kotlin.compose)
-    alias(libs.plugins.google.services)
+    // تم حذف إضافة google-services
 }
 
 android {
@@ -13,7 +13,7 @@ android {
         applicationId = "com.sobhaty"
         minSdk = 24
         targetSdk = 36
-        versionCode = 4
+        versionCode = 5
         versionName = "1.3"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
@@ -63,12 +63,11 @@ dependencies {
 
     implementation("androidx.core:core-splashscreen:1.0.1")
 
+    // Networking (سنعتمد على Retrofit فقط لجلب الأذكار)
     implementation(libs.retrofit)
     implementation(libs.retrofit.gson)
 
-    implementation(platform(libs.firebase.bom))
-    implementation(libs.firebase.analytics)
-    implementation(libs.firebase.database)
+    // تم حذف مكتبات Firebase بالكامل
 
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)

@@ -39,7 +39,6 @@ class SubhaViewModel(applicationContext: Context) : ViewModel() {
     var currentTarget by mutableIntStateOf(33)
     val completedStates = mutableStateMapOf<Int, Boolean>()
     
-    // Default values to true to avoid flicker, will load actual state immediately
     var isOnboardingCompleted by mutableStateOf(true) 
     var isTooltipShown by mutableStateOf(true)
     var isBottomBarPulseShown by mutableStateOf(true)
@@ -52,21 +51,21 @@ class SubhaViewModel(applicationContext: Context) : ViewModel() {
     }
 
     private fun setupNetworkCallback() {
-        val networkRequest = NetworkRequest.Builder()
-            .addCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)
-            .build()
-        connectivityManager.registerNetworkCallback(networkRequest, object : ConnectivityManager.NetworkCallback() {
-            override fun onAvailable(network: Network) {
-                fetchRemoteAthkar()
-            }
-        })
+        try {
+            val networkRequest = NetworkRequest.Builder()
+                .addCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)
+                .build()
+            connectivityManager.registerNetworkCallback(networkRequest, object : ConnectivityManager.NetworkCallback() {
+                override fun onAvailable(network: Network) {
+                    fetchRemoteAthkar()
+                }
+            })
+        } catch (e: Exception) { }
     }
 
     private fun loadInitialState() {
         viewModelScope.launch(Dispatchers.IO) {
             val lastIndex = repository.getInt(SubhaRepository.KEY_SELECTED_INDEX, 0).first()
-            
-            // تم تحديث المفاتيح هنا إلى V12 لتطابق ما هو موجود في الـ Repository لضمان إعادة الظهور للجميع
             val onboardingDone = repository.getBoolean(SubhaRepository.KEY_ONBOARDING_COMPLETED_V12, false).first()
             val tooltipDone = repository.getBoolean(SubhaRepository.KEY_TOOLTIP_SHOWN_V12, false).first()
             val pulseDone = repository.getBoolean(SubhaRepository.KEY_BOTTOM_BAR_PULSE_SHOWN_V12, false).first()
