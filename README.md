@@ -37,4 +37,5 @@
 3. قم بتشغيل التطبيق على المحاكي أو هاتفك الخاص.
 
 ---
-**بواسطة [اسمك أو حسابك]**
+**بواسطة [Mohammed Ali Zeggaf]**
+**linkedin link : [https://www.linkedin.com/in/mohamed-ali-zeggaf/]**
