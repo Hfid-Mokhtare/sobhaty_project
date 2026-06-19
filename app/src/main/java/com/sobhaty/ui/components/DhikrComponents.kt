@@ -60,7 +60,6 @@ fun DhikrPager(dhikr: Thikr) {
                     val isSelected = pagerState.currentPage == iteration
                     val width by animateDpAsState(targetValue = if (isSelected) 18.dp else 6.dp, label = "")
                     val color = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.primary.copy(alpha = 0.2f)
-                    // استخدام background مع Shape مباشرة لتجنب استخدام clip
                     Box(
                         modifier = Modifier
                             .padding(horizontal = 3.dp)

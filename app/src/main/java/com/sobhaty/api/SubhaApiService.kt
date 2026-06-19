@@ -8,7 +8,7 @@ import retrofit2.http.GET
 
 interface SubhaApiService {
     @GET("athkar.json")
-    suspend fun getAthkar(): Response<AthkarResponse> // تغيير الاستجابة لتكون كائن الـ Response الكامل
+    suspend fun getAthkar(): Response<AthkarResponse>
 
     companion object {
         private const val BASE_URL = "https://sobhaty-ef1b4-default-rtdb.europe-west1.firebasedatabase.app/"
